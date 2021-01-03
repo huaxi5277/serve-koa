@@ -7,7 +7,6 @@ env.config()
 const sequelize = new Sequelize(conf.database , conf.username , conf.password , {
     host : conf.host,
     dialect : 'mysql',
-    operatorsAliases : false
 })
 
 
