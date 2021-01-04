@@ -14,11 +14,10 @@ const User = sequelize.define('user' , {
     password : Sequelize.STRING,
     salt : {
         type : Sequelize.STRING,
-        defaultValue : "ahj527!@%aa"
     },
     avator : {
         type : Sequelize.STRING,
-        defaultValue : ''
+        defaultValue : 'http://localhost:3000/public/avater.png'
     }
 })
 
