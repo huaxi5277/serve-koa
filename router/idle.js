@@ -3,6 +3,7 @@ const router = new Router()
 const entryPassword = require('../utils/entrypassword')
 const jwt = require('jsonwebtoken')
 const jwtAuth = require('koa-jwt')
+const jwtDecode = require('jwt-decode')
 const salt = 'huaxi!*aa'
 const secret = 'its a secret '
 // 引入数据库模型
@@ -18,7 +19,7 @@ router.get('/test' , jwtAuth({
 
 router.post('/login' , async (ctx)=>{
    const {username , password , email} = ctx.request.body
-   let resp = await User.findOne({where : {email : email}})
+   let resp = await User.findOne({where : {email : email , username  : username}})
    if(!resp) {
         ctx.status = 200 
         ctx.body = {
@@ -89,13 +90,9 @@ router.post('/register' , async (ctx)=>{
 
   // 登陆成功之后 用token 来获取当前的用户信息
    router.get('/current' , jwtAuth({secret}) , async (ctx)=>{
-        console.log(ctx.state)
         ctx.body = {
              ...ctx.state.user
         }
    })
-
-
-
 
 module.exports = router

@@ -4,10 +4,11 @@ const router = require('koa-router')()
 const bodyParser = require('koa-bodyparser')
 const registerRouter = require('./router')
 const sequelize = require('./db')
+const path = require('path')
 const app = new koa()
 
-
-app.use(static(__dirname + '/public'))     // 使用静态文件
+console.log(path.resolve(__dirname , './public'))
+app.use(static(__dirname + '/'))     // 使用静态文件
 app.use(bodyParser())
 
 // 请求拦截 
