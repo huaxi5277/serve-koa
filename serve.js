@@ -7,11 +7,11 @@ const sequelize = require('./db')
 const app = new koa()
 
 
-app.use(static(__dirname + '/'))     // 使用静态文件
+app.use(static(__dirname + '/public'))     // 使用静态文件
 app.use(bodyParser())
 
 // 请求拦截 
-
+// {force : true}
 sequelize.sync().then(async ret=>{
     console.log('mysql serve is linstening')
 }).catch(e=>{
@@ -19,9 +19,6 @@ sequelize.sync().then(async ret=>{
 })
 
 
-router.post('/api' , async ctx=>{
-    console.log(ctx.request)
-})
 
 
 app.use(registerRouter())
