@@ -17,7 +17,7 @@ const User = sequelize.define('user' , {
     },
     avator : {
         type : Sequelize.STRING,
-        defaultValue : 'http://localhost:3000/public/avater.png'
+        defaultValue : 'http://150.158.157.98:3000/public/avater.png'
     }
 })
 
