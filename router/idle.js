@@ -13,6 +13,7 @@ const secret = 'its a secret '
 const User = require('../model/User')
 const Publish = require('../model/Publish')
 const Chat = require('../model/Chat')
+const Address = require('../model/Address')
 User.hasMany(Publish)   // Publish 中 有 User 的 Id 
 Publish.belongsTo(User , {    // 删除 User 的 时候 Publish 也 自动删除 
      constraints : true,
@@ -24,6 +25,17 @@ Chat.belongsTo(User , {    // 删除 User 的 时候 Publish 也 自动删除
      constraints : true,
      onDelete : 'CASCADE'
 })
+
+
+User.hasMany(Address , {
+     as : 'Address'
+})   // Address 中 有 User 的 Id 
+Address.belongsTo(User , {    // 删除 User 的 时候 Publish 也 自动删除 
+     constraints : true,
+     onDelete : 'CASCADE'
+})
+
+
 
 
 const multer = require('koa-multer')
@@ -481,6 +493,95 @@ router.post('/getCurrentUserChat' , jwtAuth({
      }
 })
 
+
+// 用户保存地址 
+router.post('/userAddress' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {name , tel , isDefault , detailed , region} = ctx.request.body
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     await user.createAddress({
+          name,
+          phone : tel,
+          isDefault,
+          detailed,
+          region,
+          llid : entryPassword(salt + Math.random()*20)
+     })
+     ctx.body = {
+          callback : true
+     } 
+})
+
+// 用户获取地址
+router.get('/getUserAddress' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let addr = await user.getAddress()
+     ctx.body = {
+          addr
+     } 
+})
+
+// 根据id 获取地址 
+
+router.post('/getUserAddressThoughtId' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {id} = ctx.request.body
+     console.log(id)
+     let addr = await Address.findOne({
+          where : {
+               llid : id,
+          }
+     })
+     ctx.body = {
+          addr
+     }
+})
+
+// 根据id 删除地址 
+
+router.post('/userDelAddress' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {id} = ctx.request.body
+     let addr = await Address.destroy({
+          where : {
+               llid : id,
+          }
+     })
+     ctx.body = {
+          addr
+     }
+})
+// 根据id 更新地址 
+router.post('/userUpdateAddress' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {id ,name , tel , isDefault , detailed , region} = ctx.request.body
+     let addr = await Address.update({
+          name,
+          phone : tel,
+          isDefault,
+          detailed,
+          region,
+     },{
+          where : {
+               llid : id,
+          }
+     })
+     ctx.body = {
+          addr
+     }
+})
 
 
 module.exports = router
