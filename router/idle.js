@@ -14,6 +14,8 @@ const User = require('../model/User')
 const Publish = require('../model/Publish')
 const Chat = require('../model/Chat')
 const Address = require('../model/Address')
+const Wallet = require('../model/Wallet')
+const Order = require('../model/Order')
 User.hasMany(Publish)   // Publish 中 有 User 的 Id 
 Publish.belongsTo(User , {    // 删除 User 的 时候 Publish 也 自动删除 
      constraints : true,
@@ -25,12 +27,27 @@ Chat.belongsTo(User , {    // 删除 User 的 时候 Publish 也 自动删除
      constraints : true,
      onDelete : 'CASCADE'
 })
+User.hasMany(Order,{
+     as : 'Order', 
+})   // Publish 中 有 User 的 Id 
+Order.belongsTo(User , {   // 删除 User 的 时候 Publish 也 自动删除 
+     constraints : true,
+     onDelete : 'CASCADE'
+})
 
 
 User.hasMany(Address , {
      as : 'Address'
 })   // Address 中 有 User 的 Id 
 Address.belongsTo(User , {    // 删除 User 的 时候 Publish 也 自动删除 
+     constraints : true,
+     onDelete : 'CASCADE'
+})
+
+
+User.hasOne(Wallet)
+
+Wallet.belongsTo(User , {
      constraints : true,
      onDelete : 'CASCADE'
 })
@@ -154,11 +171,15 @@ router.post('/register' , async (ctx)=>{
           email : ctx.state.user.email,
           username : ctx.state.user.data
      }})
-     user = user.get()
+     if(user.get()) {
+          user = user.get()
         ctx.body = {
              ...ctx.state.user,
              avator : user.avator
         }
+     } else {
+          ctx.body = {} 
+     }
    })
    // 修改密码
    router.post('/reviewpassword' , jwtAuth({
@@ -276,6 +297,7 @@ let temp = []
      secret
 }) , async (ctx)=>{
      if(ctx.req.body.status) {
+
           // 最后一张图片写入数据库
           // 先找到用户 
           let user = await User.findOne({where : {
@@ -289,7 +311,8 @@ let temp = []
                images2 : temp[1],
                images3 : "http://localhost:3000/public/upload/" + ctx.req.file.filename,
                itemity :  ctx.req.body.itemity,
-               name : ctx.state.user.data
+               name : ctx.state.user.data,
+               isSell : ctx.req.body.isSell
           })
           temp = [] 
           ctx.body = {
@@ -335,9 +358,22 @@ let temp = []
 // , jwtAuth({secret})  
 router.get('/allproduction' , jwtAuth({secret})  ,   async (ctx)=>{
      let id = ctx.request.query.id
+     let publish = await  Publish.findAll({where : {
+          isSell : 0
+     }})
+     let len = publish.length
+       publish = await  Publish.findAll({ where : {isSell : 0 } ,   offset: parseInt(id),limit: 2})
+      ctx.body = {
+          publish,
+          len
+      } 
+})
+
+router.get('/allproductionFifty' , jwtAuth({secret})  ,   async (ctx)=>{
+     let id = ctx.request.query.id
      let publish = await  Publish.findAll()
      let len = publish.length
-       publish = await  Publish.findAll({offset: parseInt(id),limit: 2})
+       publish = await  Publish.findAll({offset: parseInt(id),limit: 5})
       ctx.body = {
           publish,
           len
@@ -463,12 +499,20 @@ router.post('/messageHaveRead' , jwtAuth({
              isChat : 0 
           }
      })
+     console.log(chat)
+     if(chat.length <= 0 ) {
+          chat = await Chat.findAll({
+               where : {
+                  user_name : friend_name  , 
+                  friend_name :  user_name ,
+                  isChat : 0 
+               }
+          })
+     }
      
-     chat.forEach((c,i)=>{
+     chat.forEach(async (c,i)=>{
      c.isChat = 1 
-     c.save().then(()=>{
-          console.log('update')
-     })
+     await c.save()
      })
      ctx.body = {
           code  : 200 , 
@@ -488,8 +532,13 @@ router.post('/getCurrentUserChat' , jwtAuth({
                user_name,
           }
      })
+     let aboutUC = await Chat.findAll({
+          where : {
+               friend_name : user_name,
+          }
+     })
      ctx.body = {
-          chat
+          chat : chat.concat(aboutUC)
      }
 })
 
@@ -536,7 +585,6 @@ router.post('/getUserAddressThoughtId' , jwtAuth({
      secret
 }) , async (ctx)=>{
      const {id} = ctx.request.body
-     console.log(id)
      let addr = await Address.findOne({
           where : {
                llid : id,
@@ -583,5 +631,188 @@ router.post('/userUpdateAddress' , jwtAuth({
      }
 })
 
+// 用户创建钱包 
+
+router.get('/createWallet' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let result = await user.createWallet() 
+     if(result) {
+          ctx.body = {
+               result  : true 
+          }
+     } else {
+          ctx.body = {
+               result  : false
+          }
+     }
+})
+
+// 查找属于当前用户的钱包
+router.get('/getUserWallet' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let result = await user.getWallet()
+     ctx.body = {
+          result
+     }
+})
+
+// 充值
+router.post('/depositUser' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {way , money} = ctx.request.body
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let result = await user.getWallet()
+     // 更新表
+     if(result.money) {
+     result.money = (parseFloat(result.money) +  parseFloat(money)).toString() 
+     }else {
+     result.money = money 
+     }
+     result.way = way
+     res = await result.save()
+     ctx.body = {
+          msg : res ? true : false 
+     }
+})
+
+// 消费
+router.post('/consumeUser' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {way , money} = ctx.request.body
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let result = await user.getWallet()
+     // 更新表
+     if(result.money!=0) {
+     result.money = (parseFloat(result.money) -  parseFloat(money)).toString() 
+     }else {
+     result.money = 0 
+     }
+     result.way = way
+     res = await result.save()
+     ctx.body = {
+          msg : res ? true : false 
+     }
+})
+
+
+
+// 用户订单相关 
+router.post('/userCreateOrder' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {isPay , way , ORDERUUID , price , content , itemity,phone,who,address,image} = ctx.request.body
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let result =  await user.createOrder({
+          isPay,
+          way,
+          ORDERUUID,
+          price : parseInt(price),
+          content,
+          itemity : parseInt(itemity),
+          phone,
+          who,
+          address,
+          image
+     })
+     ctx.body = {
+          result
+     }
+})
+
+// 用户订单相关 
+router.post('/userUpdateOrderStatus' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {isPay , way , ORDERUUID , price , content , itemity,phone,who,address,money} = ctx.request.body
+     console.log(money)
+     let order = await Order.findOne({
+          where : {
+               price,
+               content,
+               itemity,
+          }
+     })
+     let product = await Publish.findOne({
+             where : {
+               price,
+               content,
+               itemity,
+               isSell : 0 
+             }
+     })
+     order.isPay = isPay
+     order.way = way
+     await order.save()
+     product.isSell = 1 
+     await product.save()
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let wallet = await user.getWallet()
+     wallet.money =  wallet.money - money 
+     await wallet.save()
+     ctx.body = {
+          msg : true
+     }
+})
+// 用户查找订单是否重复
+router.post('/userFindOrder' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     const {isPay , way , ORDERUUID , price , content , itemity,phone,who,address} = ctx.request.body
+     let order = await Order.findOne({
+          where : {
+               price,
+               content,
+               itemity,
+          }
+     })
+     if(order){
+          ctx.body = {
+               callback : true 
+          }
+     } else {
+          ctx.body = {
+               callback : false 
+          }
+     }
+})
+
+// 获取用户的全部订单
+router.get('/userAllOrder' , jwtAuth({
+     secret
+}) , async (ctx)=>{
+     
+     let user = await User.findOne({where : {
+          email : ctx.state.user.email,
+          username : ctx.state.user.data
+     }})
+     let order = await user.getOrder()
+     ctx.body = {
+          order
+     }
+})
 
 module.exports = router
